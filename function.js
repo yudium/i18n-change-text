@@ -58,10 +58,11 @@ function translate() {
   );
 
   // set editor value with formatted content
-  editor.value = prettier.format(content, {
-    parser: "babel",
-    plugins: prettierPlugins,
-  });
+  // editor.value = prettier.format(content, {
+  //   parser: "babel",
+  //   plugins: prettierPlugins,
+  // });
+  editor.value = content
 
   new_key = { key, value };
   keys.push({ key, value });
