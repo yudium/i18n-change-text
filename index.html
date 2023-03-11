@@ -33,7 +33,7 @@
       }
 
       #container {
-        margin-top: 10px;
+        margin-top: 70px;
         display: flex;
         flex-direction: row;
         gap: 30px;
@@ -45,32 +45,146 @@
       .copy:active {
         background: yellow;
       }
+
+      #replacer {
+        position: absolute;
+        left: -1000px;
+        top: -1000px;
+        padding: 10px;
+        border: 1px solid #555;
+        width: 300px;
+        background: #ddd;
+        display: flex;
+        gap: 5px;
+        flex-direction: column;
+      }
+
+      #replacer > div {
+        display: flex;
+        flex-direction: row;
+        gap: 5px;
+      }
+
+      #replacer input {
+        width: 100%;
+      }
     </style>
+
+    <link
+      rel="stylesheet"
+      data-name="vs/editor/editor.main"
+      href="./monaco/editor/editor.main.css"
+    />
   </head>
   <body>
     <div id="user-key-form">
-      <input type="text" id="user_key" />
-      <button id="translate">Translate</button>
       <button id="revert">Revert</button>
       <button id="copy-editor">Copy all</button>
     </div>
 
-    <div id="selection-box">
-      Current selection:
-      <span id="selection"></span>
-
-      <div>
-        USAGE:
-        <a href="https://www.loom.com/share/525e4d8d5b044f0da1e31d7779148fef"
-          >https://www.loom.com/share/525e4d8d5b044f0da1e31d7779148fef</a
-        >
+    <div id="container">
+      <div
+        id="editor"
+        style="width: 800px; height: 600px; border: 1px solid grey"
+      ></div>
+      <div id="key-list">
+        <div
+          id="key-list-editor"
+          style="width: 600px; height: 600px; border: 1px solid grey"
+        ></div>
       </div>
     </div>
 
-    <div id="container">
-      <textarea id="editor"></textarea>
-      <div id="key-list"></div>
+    <div id="replacer">
+      <div>
+        <div>Key:</div>
+        <input
+          type="text"
+          id="user_key"
+          placeholder="Tab to focus and press enter to apply"
+        />
+      </div>
+
+      <div>
+        <div>Prefix:</div>
+        <input type="text" id="prefix-input" />
+      </div>
+
+      <div>
+        <div id="error-msg"></div>
+      </div>
     </div>
+
+    <script>
+      var require = { paths: { vs: "./monaco" } };
+    </script>
+
+    <script src="./monaco/loader.js"></script>
+    <script src="./monaco/editor/editor.main.nls.js"></script>
+    <script src="./monaco/editor/editor.main.js"></script>
+
+    <script>
+      monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+        target: monaco.languages.typescript.ScriptTarget.ES2016,
+        allowNonTsExtensions: true,
+        moduleResolution:
+          monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+        module: monaco.languages.typescript.ModuleKind.CommonJS,
+        noEmit: true,
+        typeRoots: ["node_modules/@types"],
+        jsx: monaco.languages.typescript.JsxEmit.React,
+        jsxFactory: "JSXAlone.createElement",
+        noEmitOnError: true,
+        allowUnreachableCode: true,
+      });
+
+      monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+        noSemanticValidation: true,
+        noSyntaxValidation: true,
+        // diagnosticCodesToIgnore: [1375]
+      });
+
+      const example = `
+/**
+ * 1. use triple slash /// to add prefix keys 
+ * 2. rootKey is a must
+ * 3. rootKey should placed at the top of the file
+ * 4. firstKey and secondKey below is in the same level and the firstKey
+ *    will be ignored when translating "translateMe". It respects hirarchy level
+ */
+
+/// rootKey
+
+/// firstKey
+function func1() { return "text1" }
+
+/// secondKey
+function func2() {
+  /// thirdKey
+
+  // try to select text below
+  return "translateMe";
+}
+
+
+`.trim();
+
+      var editor = monaco.editor.create(document.getElementById("editor"), {
+        value: example,
+        language: "typescript",
+        minimap: { enabled: false },
+      });
+
+      var keyListEditor = monaco.editor.create(
+        document.getElementById("key-list-editor"),
+        {
+          value: "// your translation JSON will appear here",
+          language: "json",
+          readOnly: true,
+          minimap: { enabled: false },
+        }
+      );
+    </script>
 
     <script src="./function.js"></script>
   </body>
