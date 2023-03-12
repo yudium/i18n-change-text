@@ -64,6 +64,7 @@ let keys = [];
 let new_key = null;
 let selectionStart = null;
 let selectionEnd = null;
+let key_dict = {};
 
 // const editor = document.getElementById("editor");
 const user_key = document.getElementById("user_key");
@@ -87,6 +88,20 @@ function getBefore() {
     positionLineNumber: line,
     positionColumn: col,
   });
+}
+
+// function generateJSON() {
+//   const json = generateJSONByKeyList(
+//     keys.reduce((acc, item) => ({ ...acc, [item.key]: item.value }), {})
+//   );
+//   return JSON.stringify(json, null, 2);
+// }
+function generateJSON() {
+  const keys = getKeysInEditor();
+  const json = generateJSONByKeyList(
+    keys.reduce((acc, key) => ({ ...acc, [key]: key_dict[key] }), {})
+  );
+  return JSON.stringify(json, null, 2);
 }
 
 function getAfter() {
@@ -118,35 +133,20 @@ function translate() {
 
   const after = getAfter();
 
-  const { content, key, value, cursor } = replace(
+  const { content, key, value } = replace(
     getBefore(),
     getSelectedText(),
     after,
     user_key.value
   );
 
-  const { startLineNumber, startColumn, endColumn, endLineNumber } =
-    editor.getSelection();
-
   editor.setValue(content);
 
   new_key = { key, value };
-  keys.push({
-    key,
-    value,
-    cursor: {
-      startLineNumber,
-      startColumn,
-      endLineNumber,
-      endColumn,
-    },
-  });
+  keys.push({ key, value });
+  key_dict[key] = value;
 
-  const json = generateJSONByKeyList(
-    keys.reduce((acc, item) => ({ ...acc, [item.key]: item.value }), {})
-  );
-
-  keyListEditor.setValue(JSON.stringify(json, null, 2));
+  keyListEditor.setValue(generateJSON());
   attachEventListener();
 }
 
@@ -216,7 +216,37 @@ function attachEventListener() {
 const replacer = document.getElementById("replacer");
 const editorEl = document.getElementById("editor");
 
+function removeArrayItemByReference(theArray, ref) {
+  let index = theArray.indexOf(ref);
+  if (index !== -1) {
+    theArray.splice(index, 1);
+  }
+}
+
 editor.onDidChangeCursorPosition((e) => {
+  /**
+   * sync keys between editor and json
+   */
+  // const fromJSON = keys.map(({ key }) => key);
+
+  const keys = getKeysInEditor();
+  if (keys.length > 0) {
+    const change = syncKeysBetweenEditorAndJSON(getKeysInEditor(), fromJSON);
+    if (change !== undefined) {
+      // we change keys becuase keys contains original string
+      const changedKey = keys.find((k) => k.key === change.oldKey);
+      if (change.newKey) {
+        changedKey.key = change.newKey;
+      } else {
+        removeArrayItemByReference(keys, changedKey);
+      }
+      keyListEditor.setValue(generateJSON());
+    }
+  }
+
+  /**
+   * show replacer
+   */
   if (getSelectedText().trim() === "") {
     replacer.style.top = -1000 + "px";
     replacer.style.left = -1000 + "px";
@@ -346,23 +376,12 @@ function combineJSON(json1, json2) {
   return r;
 }
 
-// editor.addEventListener("onDidChange", (e) => {
-//   if (e.key === "Backspace") {
-//     const currentCursor = getCursorPosition();
-
-//     keys.forEach(({ cursor }) => {
-//       if (
-//         currentCursor.line >= cursor.startLineNumber &&
-//         currentCursor.line <= cursor.endLineNumber &&
-//         currentCursor.col >= cursor.startColumn &&
-//         currentCursor.col <= cursor.endColumn
-//       ) {
-//       }
-//     });
-//   }
-// });
-
 function syncKeysBetweenEditorAndJSON(fromEditor, fromJson) {
+  // added key
+  if (fromEditor.length > fromJson.length) {
+    return;
+  }
+
   // must be deleted
   if (fromEditor.length < fromJson.length) {
     let deletedKey = "";
@@ -394,4 +413,14 @@ function syncKeysBetweenEditorAndJSON(fromEditor, fromJson) {
   });
 
   return { oldKey, newKey };
+}
+
+function getKeysInEditor() {
+  const keys = editor.getValue().match(/t\(\".+\"\)/g);
+
+  if (keys.length === 0) {
+    return [];
+  }
+
+  return keys.map((k) => k.replace('t("', "").replace('")', ""));
 }
