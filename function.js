@@ -146,30 +146,21 @@ function translate() {
     user_key.value
   );
 
-  editor.setValue(content);
+  editor.setValue(fix(content));
 
   new_key = { key, value };
   // keys.push({ key, value });
 
-  console.log("START");
-  console.log("getKeysInEditor");
-  console.log(getKeysInEditor());
-  console.log("global_keys");
-  console.log(global_keys);
-  console.log("value");
-  console.log(value);
   global_keys = syncKeysBetweenEditorAndJSONv2(
     getKeysInEditor(),
     global_keys,
     value
   );
 
-  console.log("global_keys");
-  console.log(global_keys);
-
   key_dict[key] = value;
 
   keyListEditor.setValue(generateJSON());
+
   attachEventListener();
 }
 
@@ -491,7 +482,7 @@ function syncKeysBetweenEditorAndJSONv2(fromEditor, fromJson, new_value) {
     let stop = false;
     fromEditor.forEach((key, i) => {
       if (stop) return;
-      const addedAtLast = fromJson[i] === undefined;
+      const addedAtLast = fromJson[i] === undefined; 
       const addedAtBeginningOrMiddle =
         fromJson[i] !== undefined && key !== fromJson[i].key;
       if (addedAtLast || addedAtBeginningOrMiddle) {
@@ -553,4 +544,94 @@ function syncKeysBetweenEditorAndJSONv2(fromEditor, fromJson, new_value) {
 
 function uniqueNumber() {
   return Date.now() + Math.random().toString(10).substr(2, 9);
+}
+
+/**
+ * Fix after translating
+ * e.g: "t("key")" -> t("key")
+ */
+function fix(content) {
+  let r = "";
+  let result = "";
+
+  let chars = content.split("");
+
+  let inside_t_function = false;
+  chars.forEach((c, i) => {
+    if (c === '"' && chars[i + 1] + chars[i + 2] === "t(") {
+      inside_t_function = true;
+      return;
+    }
+
+    if (
+      inside_t_function &&
+      c === '"' &&
+      chars[i - 2] + chars[i - 1] === '")'
+    ) {
+      inside_t_function = false;
+      return;
+    }
+
+    r += c;
+  });
+
+  /**
+   * React attribute
+   */
+
+   // reset
+   result = r;
+   r = "";
+ 
+   chars = result.split("");
+   inside_t_function = false;
+   chars.forEach((c, i) => {
+     if (c === "'" && chars[i - 1] === '=' && chars[i + 1] + chars[i + 2] === "t(") {
+       inside_t_function = true;
+       r += "{";
+       return;
+     }
+ 
+     if (
+       inside_t_function &&
+       c === "'" &&
+       chars[i - 2] + chars[i - 1] === '")'
+     ) {
+       inside_t_function = false;
+       r += "}";
+       return;
+     }
+ 
+     r += c;
+   });
+
+  // reset
+  result = r;
+  r = "";
+
+  chars = result.split("");
+  inside_t_function = false;
+  chars.forEach((c, i) => {
+    if (c === "'" && chars[i + 1] + chars[i + 2] === "t(") {
+      inside_t_function = true;
+      return;
+    }
+
+    if (
+      inside_t_function &&
+      c === "'" &&
+      chars[i - 2] + chars[i - 1] === '")'
+    ) {
+      inside_t_function = false;
+      return;
+    }
+
+    r += c;
+  });
+
+  // reset
+  result = r;
+  r = "";
+
+  return result;
 }
