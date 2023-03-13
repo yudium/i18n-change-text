@@ -237,19 +237,19 @@ editor.onDidChangeCursorPosition((e) => {
   const keys = getKeysInEditor();
 
   if (keys.length > 0 || last_keys.length > 0) {
-    const change = syncKeysBetweenEditorAndJSON(keys, last_keys);
-    if (change !== undefined) {
-      // we change keys becuase keys contains original string
-      // const changedKey = keys.find((k) => k.key === change.oldKey);
-      if (change.newKey) {
-        key_dict[change.newKey] = key_dict[change.oldKey];
-        delete key_dict[change.oldKey];
-        // changedKey.key = change.newKey;
-      } else {
-        removeArrayItemByReference(keys, changedKey);
-      }
-      keyListEditor.setValue(generateJSON());
-    }
+    // const change = syncKeysBetweenEditorAndJSON(keys, last_keys);
+    // if (change !== undefined) {
+    //   // we change keys becuase keys contains original string
+    //   // const changedKey = keys.find((k) => k.key === change.oldKey);
+    //   if (change.newKey) {
+    //     key_dict[change.newKey] = key_dict[change.oldKey];
+    //     delete key_dict[change.oldKey];
+    //     // changedKey.key = change.newKey;
+    //   } else {
+    //     removeArrayItemByReference(keys, changedKey);
+    //   }
+    //   keyListEditor.setValue(generateJSON());
+    // }
   }
 
   // end
