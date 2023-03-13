@@ -449,7 +449,9 @@ function syncKeysBetweenEditorAndJSON(fromEditor, fromJson) {
 }
 
 function getKeysInEditor() {
-  const keys = editor.getValue().match(/t\(\".*\"\)/g);
+  // this is horrible regex, refactor
+  // it matches anything with t("anything here"), t("") and t("<separated by new line>")
+  const keys = editor.getValue().match(/t\(\"((?!\"\))(.|\s))*\"\)/g);
 
   if (!Array.isArray(keys) || keys.length === 0) {
     return [];
