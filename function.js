@@ -17,6 +17,10 @@ function extractParentKeys(content) {
     .filter((line) => line.trim().startsWith(BANG))
     .reverse();
 
+  if (candidate_parent_keys.length === 0) {
+    throw new Error("no rootkey");
+  }
+
   let first_key = candidate_parent_keys[0];
   let current_key = candidate_parent_keys[0];
   candidate_parent_keys = candidate_parent_keys.slice(1);
@@ -223,26 +227,33 @@ function removeArrayItemByReference(theArray, ref) {
   }
 }
 
+let last_keys = [];
+
 editor.onDidChangeCursorPosition((e) => {
   /**
    * sync keys between editor and json
    */
-  // const fromJSON = keys.map(({ key }) => key);
 
   const keys = getKeysInEditor();
-  if (keys.length > 0) {
-    const change = syncKeysBetweenEditorAndJSON(getKeysInEditor(), fromJSON);
+
+  if (keys.length > 0 || last_keys.length > 0) {
+    const change = syncKeysBetweenEditorAndJSON(keys, last_keys);
     if (change !== undefined) {
       // we change keys becuase keys contains original string
-      const changedKey = keys.find((k) => k.key === change.oldKey);
+      // const changedKey = keys.find((k) => k.key === change.oldKey);
       if (change.newKey) {
-        changedKey.key = change.newKey;
+        key_dict[change.newKey] = key_dict[change.oldKey];
+        delete key_dict[change.oldKey];
+        // changedKey.key = change.newKey;
       } else {
         removeArrayItemByReference(keys, changedKey);
       }
       keyListEditor.setValue(generateJSON());
     }
   }
+
+  // end
+  last_keys = keys;
 
   /**
    * show replacer
@@ -286,11 +297,13 @@ function getReplacerPositionByCursor(e) {
     editor.getOffsetForColumn(e.position.lineNumber, e.position.column) +
     "px";
 
-  const top =
-    25 +
-    editorEl.offsetTop +
-    editor.getTopForPosition(e.position.lineNumber, e.position.column) +
-    "px";
+  // editor.getTopForPosition(e.position.lineNumber, e.position.column)
+  const topRelativeToEditorContainer = editor.getScrolledVisiblePosition({
+    lineNumber: e.position.lineNumber,
+    column: e.position.column,
+  });
+
+  const top = 25 + editorEl.offsetTop + topRelativeToEditorContainer.top + "px";
 
   return {
     left,
@@ -418,9 +431,23 @@ function syncKeysBetweenEditorAndJSON(fromEditor, fromJson) {
 function getKeysInEditor() {
   const keys = editor.getValue().match(/t\(\".+\"\)/g);
 
-  if (keys.length === 0) {
+  if (!Array.isArray(keys) || keys.length === 0) {
     return [];
   }
 
   return keys.map((k) => k.replace('t("', "").replace('")', ""));
 }
+
+const notif = document.getElementById("notif");
+editor.onDidPaste((e) => {
+  notif.style.display = "none";
+
+  // in case multiple notif at the same time
+  setTimeout(() => {
+    notif.style.display = "block";
+    notif.innerText = "Do not forget Root Key at the top";
+    setTimeout(() => {
+      notif.style.display = "none";
+    }, 2000);
+  }, 10);
+});
