@@ -69,6 +69,7 @@ let new_key = null;
 let selectionStart = null;
 let selectionEnd = null;
 let key_dict = {};
+let global_keys = [];
 
 // const editor = document.getElementById("editor");
 const user_key = document.getElementById("user_key");
@@ -101,9 +102,10 @@ function getBefore() {
 //   return JSON.stringify(json, null, 2);
 // }
 function generateJSON() {
-  const keys = getKeysInEditor();
+  // const keys = getKeysInEditor();
   const json = generateJSONByKeyList(
-    keys.reduce((acc, key) => ({ ...acc, [key]: key_dict[key] }), {})
+    // keys.reduce((acc, key) => ({ ...acc, [key]: key_dict[key] }), {})
+    global_keys.reduce((acc, { key, value }) => ({ ...acc, [key]: value }), {})
   );
   return JSON.stringify(json, null, 2);
 }
@@ -147,7 +149,24 @@ function translate() {
   editor.setValue(content);
 
   new_key = { key, value };
-  keys.push({ key, value });
+  // keys.push({ key, value });
+
+  console.log("START");
+  console.log("getKeysInEditor");
+  console.log(getKeysInEditor());
+  console.log("global_keys");
+  console.log(global_keys);
+  console.log("value");
+  console.log(value);
+  global_keys = syncKeysBetweenEditorAndJSONv2(
+    getKeysInEditor(),
+    global_keys,
+    value
+  );
+
+  console.log("global_keys");
+  console.log(global_keys);
+
   key_dict[key] = value;
 
   keyListEditor.setValue(generateJSON());
@@ -236,8 +255,9 @@ editor.onDidChangeCursorPosition((e) => {
 
   const keys = getKeysInEditor();
 
-  if (keys.length > 0 || last_keys.length > 0) {
-    // const change = syncKeysBetweenEditorAndJSON(keys, last_keys);
+  if (keys.length <= global_keys.length) {
+    global_keys = syncKeysBetweenEditorAndJSONv2(keys, global_keys);
+    keyListEditor.setValue(generateJSON());
     // if (change !== undefined) {
     //   // we change keys becuase keys contains original string
     //   // const changedKey = keys.find((k) => k.key === change.oldKey);
@@ -429,7 +449,7 @@ function syncKeysBetweenEditorAndJSON(fromEditor, fromJson) {
 }
 
 function getKeysInEditor() {
-  const keys = editor.getValue().match(/t\(\".+\"\)/g);
+  const keys = editor.getValue().match(/t\(\".*\"\)/g);
 
   if (!Array.isArray(keys) || keys.length === 0) {
     return [];
@@ -438,6 +458,9 @@ function getKeysInEditor() {
   return keys.map((k) => k.replace('t("', "").replace('")', ""));
 }
 
+/**
+ * Notification
+ */
 const notif = document.getElementById("notif");
 editor.onDidPaste((e) => {
   notif.style.display = "none";
@@ -451,3 +474,81 @@ editor.onDidPaste((e) => {
     }, 2000);
   }, 10);
 });
+
+/***
+ * syncKeysBetweenEditorAndJSON v2
+ */
+function syncKeysBetweenEditorAndJSONv2(fromEditor, fromJson, new_value) {
+  // added
+  if (
+    fromEditor.length > fromJson.length ||
+    (typeof new_value === "string" && new_value !== "")
+  ) {
+    let index = -1;
+
+    let stop = false;
+    fromEditor.forEach((key, i) => {
+      if (stop) return;
+      const addedAtLast = fromJson[i] === undefined;
+      const addedAtBeginningOrMiddle =
+        fromJson[i] !== undefined && key !== fromJson[i].key;
+      if (addedAtLast || addedAtBeginningOrMiddle) {
+        index = i;
+        stop = true;
+      }
+    });
+
+    const copy = fromJson.slice();
+    copy.splice(index, 0, {
+      key: fromEditor[index],
+      value: new_value,
+    });
+    return copy;
+  }
+
+  // must be deleted
+  if (fromEditor.length < fromJson.length) {
+    // let deletedKey = "";
+    let stop = false;
+
+    let copy = fromJson.slice();
+    fromJson.forEach(({ key }, i) => {
+      if (stop === true) return;
+
+      if (key !== fromEditor[i]) {
+        // deletedKey = key;
+
+        copy.splice(i, 1);
+
+        stop = true;
+      }
+    });
+
+    return copy;
+  }
+
+  // update
+  let stop = false;
+
+  let copy = fromJson.slice();
+
+  fromJson.forEach(({ key }, i) => {
+    if (stop === true) return;
+
+    if (key !== fromEditor[i]) {
+      if (fromEditor[i].trim() === "") {
+        copy[i].key = "_empty_key_" + uniqueNumber();
+        stop = true;
+      } else {
+        copy[i].key = fromEditor[i];
+        stop = true;
+      }
+    }
+  });
+
+  return copy;
+}
+
+function uniqueNumber() {
+  return Date.now() + Math.random().toString(10).substr(2, 9);
+}
